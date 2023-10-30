@@ -53,6 +53,14 @@ else
     echo "### running fp32 datatype"
 fi
 
+if [ "$2" == "torch_compile" ]; then
+    ARGS="$ARGS --torch_compile"
+    echo "### running torch_compile"
+else
+    ARGS="$ARGS --ipex --jit"
+    echo "### running ipex jit"
+fi
+
 export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
 export KMP_BLOCKTIME=1
 export KMP_AFFINITY=granularity=fine,compact,1,0
@@ -73,8 +81,6 @@ python -m intel_extension_for_pytorch.cpu.launch \
     --model_toml ${MODEL_DIR}/models/language_modeling/pytorch/rnnt/inference/cpu/configs/rnnt.toml \
     --ckpt ${CHECKPOINT_DIR}/results/rnnt.pt \
     --batch_size $BATCH_SIZE \
-    --ipex \
-    --jit \
     --warm_up 10 \
     $ARGS
 

@@ -78,6 +78,8 @@ def parse_args():
                     help='Use oneDNN Graph LLGA backend')
     parser.add_argument('--graph_mode', action='store_true', default=False,
                     help='using Ipex graph mode')
+    parser.add_argument('--torch_compile', action='store_true', default=False,
+                help='using torch.compile()')  
     return parser.parse_args()
 
 def eval(
@@ -250,6 +252,8 @@ def eval(
             print("Throughput: {:.3f} fps".format(perf))
 
 def main(args):
+    import torch
+    
     random.seed(args.seed)
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
@@ -341,6 +345,30 @@ def main(args):
             model.joint_net = torch.jit.optimize_for_inference(model.joint_net)
         else:
             model.joint_net = torch.jit.freeze(model.joint_net)
+
+    if args.torch_compile:
+        print('[Info] Running torch.compile() with default backend')
+        import torch._dynamo
+        import torch._inductor
+        torch._dynamo.config.allow_rnn = True
+        torch._dynamo.config.dynamic_shapes = True
+        torch._dynamo.config.assume_static_by_default = False
+        torch._inductor.config.freezing = True
+        torch._inductor.config.cpp_wrapper = True
+        torch._inductor.config.cpp.min_chunk_size = 1
+        if args.profiling:
+            torch._inductor.config.profiler_mark_wrapper_call = True
+            torch._inductor.config.cpp.enable_kernel_profile = True
+
+        # TODO: Need to explicitly convert model to bf16 so that lstm inputs all
+        # have same dtype to pass the decompostion check in PyTorch
+        model = model.to(data_type)
+
+        model.encoder.pre_rnn.lstm = torch.compile(model.encoder.pre_rnn.lstm)
+        model.encoder.post_rnn.lstm = torch.compile(model.encoder.post_rnn.lstm)
+        model.prediction.dec_rnn.lstm = torch.compile(model.prediction.dec_rnn.lstm)            
+
+        model.joint_net = torch.compile(model.joint_net)   
 
     #greedy_decoder = GreedyCTCDecoder()
 

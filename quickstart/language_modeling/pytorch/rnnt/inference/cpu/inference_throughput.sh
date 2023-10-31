@@ -61,6 +61,11 @@ else
     echo "### running ipex jit"
 fi
 
+if [ "$3" == "profiling" ]; then
+    ARGS="$ARGS --profiling"
+    echo "### running profiling mode"
+fi
+
 export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
 export KMP_BLOCKTIME=1
 export KMP_AFFINITY=granularity=fine,compact,1,0
